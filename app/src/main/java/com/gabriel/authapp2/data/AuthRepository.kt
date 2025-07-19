@@ -7,6 +7,9 @@ import com.google.android.gms.auth.api.signin.GoogleSignIn
 import com.google.android.gms.auth.api.signin.GoogleSignInClient
 import com.google.android.gms.auth.api.signin.GoogleSignInOptions
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
+import com.google.firebase.auth.FirebaseAuthWeakPasswordException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -15,7 +18,7 @@ class AuthRepository {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
-    suspend fun registerUser(email: String, password: String, name: String): Boolean {
+    suspend fun registerUser(email: String, password: String, name: String): RegistrationResult {
         return try {
             val result = auth.createUserWithEmailAndPassword(email, password).await()
             val uid = result.user?.uid
@@ -28,10 +31,17 @@ class AuthRepository {
                 )
                 firestore.collection("users").document(uid).set(user).await()
             }
-            true
+            RegistrationResult.Success
         } catch (e: Exception) {
-            Log.e("AuthRepository", "Erro no cadastro: ${e.message}")
-            false
+            // MUDANÇA AQUI: Log aprimorado para diagnóstico
+            Log.e("AuthRepository", "Exceção: ${e.javaClass.simpleName}, Mensagem: ${e.message}")
+
+            when (e) {
+                is FirebaseAuthUserCollisionException -> RegistrationResult.ErrorEmailAlreadyInUse
+                is FirebaseAuthWeakPasswordException -> RegistrationResult.ErrorWeakPassword
+                is FirebaseAuthInvalidCredentialsException -> RegistrationResult.ErrorInvalidEmail
+                else -> RegistrationResult.ErrorGeneric(e.message)
+            }
         }
     }
 
@@ -108,8 +118,10 @@ class AuthRepository {
         }
     }
 
-    fun logout() {
+    fun logout(context: Context) {
         auth.signOut()
+        val googleSignInClient = getGoogleSignInClient(context)
+        googleSignInClient.signOut()
     }
 
     fun isUserLogged(): Boolean {

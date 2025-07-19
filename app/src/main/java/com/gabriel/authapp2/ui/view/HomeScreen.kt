@@ -5,6 +5,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.gabriel.authapp2.ui.viewmodel.AuthViewModel
 
@@ -14,6 +15,7 @@ fun HomeScreen(
     onLogout: () -> Unit
 ) {
     var userName by remember { mutableStateOf("Carregando...") }
+    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         authViewModel.getUserName { name ->
@@ -29,9 +31,9 @@ fun HomeScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Text("Bem-vindo, $userName!", style = MaterialTheme.typography.headlineMedium)
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(32.dp))
         Button(onClick = {
-            authViewModel.logout()
+            authViewModel.logout(context)
             onLogout()
         }) {
             Text("Sair")
